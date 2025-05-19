@@ -1,0 +1,73 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouTube Channel Search</title>
+</head>
+<body>
+  <h2>YouTube 频道关键词搜索工具</h2>
+  <p>请输入频道用户名（如 @americasparks 或 americasparks）：</p>
+  <input type="text" id="channelInput" placeholder="频道用户名" />
+  <p>请输入关键词（标题或简介中包含）：</p>
+  <input type="text" id="keywordInput" placeholder="关键词" />
+  <button onclick="searchVideos()">搜索</button>
+  <div id="results"></div>
+
+  <script>
+    async function resolveChannelId(username) {
+      username = username.replace(/^@/, '');
+      const res = await fetch(`https://www.youtube.com/@${username}`);
+      const text = await res.text();
+      const match = text.match(/"channelId":"(UC[\w-]+)"/);
+      return match ? match[1] : null;
+    }
+
+    async function searchVideos() {
+      const username = document.getElementById('channelInput').value.trim();
+      const keyword = document.getElementById('keywordInput').value.trim().toLowerCase();
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '正在解析频道 ID...';
+
+      const channelId = await resolveChannelId(username);
+      if (!channelId) {
+        resultsDiv.innerHTML = '未能解析频道 ID，请检查用户名是否正确。';
+        return;
+      }
+
+      resultsDiv.innerHTML = '正在搜索视频...';
+
+      try {
+        const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+        const text = await res.text();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(text, "application/xml");
+        const items = xml.getElementsByTagName("entry");
+
+        let found = 0;
+        resultsDiv.innerHTML = "";
+        for (let item of items) {
+          const title = item.getElementsByTagName("title")[0].textContent;
+          const link = item.getElementsByTagName("link")[0].getAttribute("href");
+          const desc = item.getElementsByTagName("media:description")[0]?.textContent || "";
+
+          if (title.toLowerCase().includes(keyword) || desc.toLowerCase().includes(keyword)) {
+            const div = document.createElement("div");
+            div.innerHTML = `<a href="${link}" target="_blank">${title}</a>`;
+            resultsDiv.appendChild(div);
+            found++;
+          }
+        }
+
+        if (found === 0) {
+          resultsDiv.innerHTML = "未找到匹配的视频。";
+        }
+
+      } catch (e) {
+        resultsDiv.innerHTML = "获取视频失败：" + e.message;
+      }
+    }
+  </script>
+</body>
+</html>

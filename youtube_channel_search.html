@@ -1,0 +1,71 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube 频道搜索工具</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    input, button { width: 100%; padding: 10px; margin: 8px 0; font-size: 1em; }
+    .video { margin: 10px 0; padding: 10px; border-bottom: 1px solid #ccc; }
+    .video a { text-decoration: none; color: #1a0dab; }
+  </style>
+</head>
+<body>
+  <h2>YouTube 频道关键词搜索</h2>
+  <label>频道 ID：</label>
+  <input type="text" id="channelId" placeholder="如：UC_x5XG1OV2P6uZZ5FSM9Ttw" />
+  <label>关键词：</label>
+  <input type="text" id="keyword" placeholder="请输入关键词" />
+  <button onclick="searchVideos()">开始搜索</button>
+  <div id="results"></div>
+
+  <script>
+    const apiKey = "AIzaSyB33_FjgLI58wL6LD1GnQDiL8ZbTA--A_o";
+
+    async function searchVideos() {
+      const channelId = document.getElementById("channelId").value.trim();
+      const keyword = document.getElementById("keyword").value.trim();
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = "正在搜索，请稍候...";
+
+      if (!channelId || !keyword) {
+        resultsDiv.innerHTML = "频道 ID 和关键词不能为空。";
+        return;
+      }
+
+      let videos = [];
+      let nextPageToken = "";
+      for (let i = 0; i < 3; i++) {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&q=${keyword}&type=video&maxResults=50&key=${apiKey}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.items) {
+          data.items.forEach(item => {
+            videos.push({
+              title: item.snippet.title,
+              videoId: item.id.videoId
+            });
+          });
+        }
+        if (!data.nextPageToken) break;
+        nextPageToken = data.nextPageToken;
+      }
+
+      resultsDiv.innerHTML = "";
+      if (videos.length === 0) {
+        resultsDiv.innerHTML = "未找到相关视频。";
+        return;
+      }
+
+      videos.forEach(video => {
+        const div = document.createElement("div");
+        div.className = "video";
+        div.innerHTML = `<a href="https://www.youtube.com/watch?v=${video.videoId}" target="_blank">${video.title}</a>`;
+        resultsDiv.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

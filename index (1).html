@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube频道关键词搜索</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #202124;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      font-size: 1em;
+      box-sizing: border-box;
+    }
+    .section {
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+    .video {
+      padding: 10px 0;
+      border-bottom: 1px solid #ddd;
+    }
+    .video a {
+      color: #1a73e8;
+      text-decoration: none;
+    }
+    .video a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>YouTube频道关键词搜索</h1>
+
+  <div class="section">
+    <label for="usernameInput">输入频道链接或用户名（如 @americasparks 或 https://www.youtube.com/@americasparks）：</label>
+    <input type="text" id="usernameInput" placeholder="频道用户名或链接" />
+    <button onclick="getChannelId()">获取频道 ID</button>
+    <p id="resolvedId" style="word-break: break-all; color: green;"></p>
+  </div>
+
+  <div class="section">
+    <label for="channelInput">频道 ID（可粘贴上方获取结果）：</label>
+    <input type="text" id="channelInput" placeholder="如：UCptys-6Bl9kQSPG7mGKPpKw" />
+    <label for="keywordInput">搜索关键词：</label>
+    <input type="text" id="keywordInput" placeholder="如：badlands" />
+    <button onclick="searchVideos()">搜索视频</button>
+    <div id="results" style="margin-top: 1em;"></div>
+  </div>
+
+  <script>
+    const apiKey = "AIzaSyB33_FjgLI58wL6LD1GnQDiL8ZbTA--A_o";
+
+    async function getChannelId() {
+      const input = document.getElementById("usernameInput").value.trim();
+      const display = document.getElementById("resolvedId");
+      display.innerText = "请手动输入频道 ID，目前用户名解析服务暂不可用";
+    }
+
+    async function searchVideos() {
+      const channelId = document.getElementById("channelInput").value.trim();
+      const keyword = document.getElementById("keywordInput").value.trim().toLowerCase();
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = "正在搜索，请稍候...";
+
+      if (!channelId || !keyword) {
+        resultsDiv.innerHTML = "频道 ID 和关键词不能为空。";
+        return;
+      }
+
+      let videos = [];
+      let nextPageToken = "";
+      for (let i = 0; i < 3; i++) {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&q=${keyword}&type=video&maxResults=50&key=${apiKey}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.items) {
+          data.items.forEach(item => {
+            const title = item.snippet.title.toLowerCase();
+            const desc = item.snippet.description?.toLowerCase() || "";
+            if (title.includes(keyword) || desc.includes(keyword)) {
+              videos.push({
+                title: item.snippet.title,
+                videoId: item.id.videoId
+              });
+            }
+          });
+        }
+        if (!data.nextPageToken) break;
+        nextPageToken = data.nextPageToken;
+      }
+
+      resultsDiv.innerHTML = "";
+      if (videos.length === 0) {
+        resultsDiv.innerHTML = "未找到相关视频。";
+        return;
+      }
+
+      videos.forEach(video => {
+        const div = document.createElement("div");
+        div.className = "video";
+        div.innerHTML = `<a href="https://www.youtube.com/watch?v=${video.videoId}" target="_blank">${video.title}</a>`;
+        resultsDiv.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

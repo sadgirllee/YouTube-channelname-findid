@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube频道工具</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: url('https://images.unsplash.com/photo-1580428181264-4fd5df7dc45b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1500&q=80') no-repeat center center fixed;
+      background-size: cover;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      background-color: rgba(0, 0, 0, 0.7);
+      max-width: 720px;
+      margin: 40px auto;
+      padding: 30px;
+      border-radius: 12px;
+    }
+    h1, h3 {
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-top: 16px;
+      font-weight: bold;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      font-size: 1em;
+      box-sizing: border-box;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      background-color: #1a73e8;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1666c1;
+    }
+    .video {
+      margin: 12px 0;
+      padding: 12px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+    }
+    .video a {
+      color: #90caf9;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .video-detail {
+      font-size: 0.9em;
+      margin-top: 4px;
+      color: #ccc;
+    }
+    .favorite-btn {
+      margin-top: 6px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+    }
+    .favorite-btn.saved {
+      background-color: #9e9e9e;
+    }
+    .remove-btn {
+      background-color: transparent;
+      border: none;
+      color: #f44336;
+      font-size: 0.9em;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 24px;
+    }
+    .channel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    .channel-row input[type="text"] {
+      width: 65%;
+    }
+    .channel-row label {
+      margin: 0;
+      display: flex;
+      align-items: center;
+    }
+    .channel-row input[type="checkbox"] {
+      margin-left: 6px;
+      transform: scale(1.2);
+    }
+    .channel-list-item {
+      margin: 6px 0;
+      padding: 6px 10px;
+      background-color: rgba(255,255,255,0.08);
+      border-radius: 6px;
+    }
+    .channel-id-note {
+      display: block;
+      font-size: 0.9em;
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #aaddff;
+    }
+    .channel-id-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9em;
+    }
+    .toggle-btn {
+      background: none;
+      color: #ddd;
+      font-size: 0.9em;
+      text-decoration: underline;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>YouTube频道关键词搜索工具</h1>
+
+    <label>请输入频道 ID：</label>
+    <input type="text" id="channelInput" placeholder="如：UCptys-6Bl9kQSPG7mGKPpKw" />
+    <div class="channel-row">
+      <input type="text" id="channelNote" maxlength="10" placeholder="备注（最多10字）" />
+      <label>保存频道 <input type="checkbox" id="rememberChannel" /></label>
+    </div>
+
+    <div class="section-header">
+      <h3>已保存频道</h3>
+      <button class="toggle-btn" onclick="toggleChannelList()">展开/收起</button>
+    </div>
+    <div id="channelListWrap" style="display:none;">
+      <div id="channelList"></div>
+    </div>
+
+    <label>请输入关键词：</label>
+    <input type="text" id="keywordInput" placeholder="如：badlands" />
+    <button onclick="searchVideos()">搜索关键词相关视频</button>
+    <button onclick="exportResults()">导出搜索结果 (TXT)</button>
+    <button onclick="getAllVideos()">一键获取频道全部视频</button>
+    <button onclick="exportAll()">导出全部视频 (TXT)</button>
+
+    <div id="results" style="margin-top: 1em;"></div>
+
+    <div class="section-header">
+      <h3>已收藏视频</h3>
+    </div>
+    <ul id="favoritesList" style="padding-left: 0; list-style: none;"></ul>
+  </div>
+
+  <script>
+    const apiKey = "AIzaSyB33_FjgLI58wL6LD1GnQDiL8ZbTA--A_o";
+    let searchResults = [];
+    let allVideos = [];
+    let favorites = JSON.parse(localStorage.getItem("youtubeFavorites") || "[]");
+    let channelHistory = JSON.parse(localStorage.getItem("channelHistory") || "[]");
+
+    function toggleChannelList() {
+      const wrap = document.getElementById("channelListWrap");
+      wrap.style.display = wrap.style.display === "none" ? "block" : "none";
+    }
+    function saveFavorites() {
+      localStorage.setItem("youtubeFavorites", JSON.stringify(favorites.slice(-10)));
+    }
+    function saveChannelHistory() {
+      localStorage.setItem("channelHistory", JSON.stringify(channelHistory.slice(-20)));
+    }
+    function addChannelHistory(id, note) {
+      if (!id || channelHistory.some(c => c.id === id)) return;
+      channelHistory.push({ id, note: note || "" });
+      saveChannelHistory();
+      renderChannelList();
+    }
+    function renderChannelList() {
+      const list = document.getElementById("channelList");
+      list.innerHTML = "";
+      channelHistory.forEach((ch, i) => {
+        const div = document.createElement("div");
+        div.className = "channel-list-item";
+        div.innerHTML = `
+          <div class="channel-id-note">${ch.note || "无备注"}</div>
+          <div class="channel-id-line">
+            <span>${ch.id}</span>
+            <span>
+              <button onclick="useChannel('${ch.id}')">使用</button>
+              <button class="remove-btn" onclick="removeChannel(${i})">❌</button>
+            </span>
+          </div>`;
+        list.appendChild(div);
+      });
+    }
+    function removeChannel(index) {
+      channelHistory.splice(index, 1);
+      saveChannelHistory();
+      renderChannelList();
+    }
+    function useChannel(id) {
+      document.getElementById("channelInput").value = id;
+    }
+    async function searchVideos() {
+      const channelId = document.getElementById("channelInput").value.trim();
+      const note = document.getElementById("channelNote").value.trim();
+      if (document.getElementById("rememberChannel").checked) {
+        addChannelHistory(channelId, note);
+      }
+      const keyword = document.getElementById("keywordInput").value.trim().toLowerCase();
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = "正在搜索，请稍候...";
+      searchResults = [];
+      if (!channelId || !keyword) return resultsDiv.innerHTML = "频道 ID 和关键词不能为空。";
+      let nextPageToken = "";
+      for (let i = 0; i < 3; i++) {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet,id&channelId=${channelId}&q=${keyword}&type=video&maxResults=50&key=${apiKey}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.items) {
+          for (const item of data.items) {
+            const videoId = item.id.videoId;
+            const detailsRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoId}&key=${apiKey}`);
+            const details = await detailsRes.json();
+            const info = details.items[0];
+            const duration = info.contentDetails.duration.replace("PT", "").toLowerCase();
+            const published = new Date(info.snippet.publishedAt).toLocaleDateString();
+            const views = info.statistics.viewCount || "N/A";
+            const comments = info.statistics.commentCount || "N/A";
+            searchResults.push({
+              title: info.snippet.title,
+              videoId,
+              duration,
+              published,
+              views,
+              comments
+            });
+          }
+        }
+        if (!data.nextPageToken) break;
+        nextPageToken = data.nextPageToken;
+      }
+      renderVideos(searchResults, resultsDiv);
+    }
+    function renderVideos(list, container) {
+      container.innerHTML = "";
+      if (list.length === 0) return container.innerHTML = "未找到相关视频。";
+      list.forEach(video => {
+        const div = document.createElement("div");
+        div.className = "video";
+        const saved = favorites.find(f => f.videoId === video.videoId);
+        div.innerHTML = `<a href="https://www.youtube.com/watch?v=${video.videoId}" target="_blank">${video.title}</a>
+          <div class="video-detail">时长：${video.duration || "未知"}，发布时间：${video.published}，播放：${video.views}，评论：${video.comments}</div>
+          <button class="favorite-btn ${saved ? 'saved' : ''}" onclick="toggleFavorite(this, '${video.title.replace(/'/g, "\'")}', '${video.videoId}')">${saved ? '已收藏' : '收藏'}</button>`;
+        container.appendChild(div);
+      });
+    }
+    function toggleFavorite(button, title, videoId) {
+      const index = favorites.findIndex(v => v.videoId === videoId);
+      if (index >= 0) {
+        favorites.splice(index, 1);
+        button.innerText = "收藏";
+        button.classList.remove("saved");
+      } else {
+        favorites.push({ title, videoId });
+        button.innerText = "已收藏";
+        button.classList.add("saved");
+      }
+      saveFavorites();
+      renderFavorites();
+    }
+    function renderFavorites() {
+      const list = document.getElementById("favoritesList");
+      list.innerHTML = "";
+      favorites.forEach((video, idx) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="https://www.youtube.com/watch?v=${video.videoId}" target="_blank">${video.title}</a>
+          <button class="remove-btn" onclick="removeFavorite(${idx})">❌</button>`;
+        list.appendChild(li);
+      });
+    }
+    function removeFavorite(index) {
+      favorites.splice(index, 1);
+      saveFavorites();
+      renderFavorites();
+    }
+    function exportResults() {
+      if (searchResults.length === 0) return alert("无搜索结果可导出。");
+      const content = searchResults.map(v => `${v.title} - https://www.youtube.com/watch?v=${v.videoId}`).join("\n");
+      downloadTextFile(content, "search_results.txt");
+    }
+    function exportAll() {
+      if (allVideos.length === 0) return alert("请先获取全部视频再导出。");
+      const content = allVideos.map(v => `${v.title} - https://www.youtube.com/watch?v=${v.videoId}`).join("\n");
+      downloadTextFile(content, "all_channel_videos.txt");
+    }
+    function downloadTextFile(content, filename) {
+      const blob = new Blob([content], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+    }
+    window.onload = () => { renderFavorites(); renderChannelList(); };
+  </script>
+</body>
+</html>
